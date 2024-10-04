@@ -1,3 +1,6 @@
+# Ignore IDE-specific settings (e.g., Visual Studio Code or JetBrains IDEs)
+.vscode/
+
 # OSX
 #
 .DS_Store

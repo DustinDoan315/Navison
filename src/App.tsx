@@ -15,7 +15,7 @@ import useBLE from './components/useBLE';
 
 interface BluetoothDevice {
   id: string;
-  name?: string;
+  name: string | null;
 }
 
 interface PortConfiguration {
@@ -29,7 +29,7 @@ const App: React.FC = () => {
     requestPermissions,
     scanForPeripherals,
     allDevices,
-    // connectToDevice,
+    connectToDevice,
     // connectedDevice,
     // disconnectFromDevice,
   } = useBLE();
@@ -46,9 +46,19 @@ const App: React.FC = () => {
     {id: 7, timer: 0, index: 7},
     {id: 8, timer: 0, index: 8},
   ]);
+  const uniqueIds = new Set();
+  const mappingData: BluetoothDevice[] = allDevices
+    .filter(
+      device =>
+        device.name && !uniqueIds.has(device.id) && uniqueIds.add(device.id),
+    )
+    .map(device => ({
+      id: device.id,
+      name: device.name,
+    }));
 
   console.log('====================================');
-  console.log('---allDevices: ', allDevices);
+  console.log('---allDevices: ', mappingData.slice(0, 10));
   console.log('====================================');
 
   const [selectedPort, setSelectedPort] = useState<PortConfiguration | null>(
@@ -57,9 +67,9 @@ const App: React.FC = () => {
   const [timerValue, setTimerValue] = useState<string>('');
   const [isModalVisible, setModalVisible] = useState<boolean>(false);
 
-  const handleConnect = async (device: BluetoothDevice) => {
-    console.log('---device: ', device);
-  };
+  // const handleConnect = async (device: BluetoothDevice) => {
+  //   console.log('---device: ', device);
+  // };
 
   const handleSendConfig = async () => {
     const configData = portConfigurations.map(port => ({
@@ -101,12 +111,12 @@ const App: React.FC = () => {
         <Button title="Scan for Devices" onPress={scanForDevices} />
         <FlatList
           scrollEnabled={false}
-          data={[]}
+          data={mappingData.slice(0, 10)}
           keyExtractor={(item: any) => item.id}
-          renderItem={({item}) => (
+          renderItem={({item}: any) => (
             <TouchableOpacity
               style={styles.deviceItem}
-              onPress={() => handleConnect(item)}>
+              onPress={() => connectToDevice(item)}>
               <Text style={styles.deviceText}>
                 {item.name || 'Unnamed Device'}
               </Text>

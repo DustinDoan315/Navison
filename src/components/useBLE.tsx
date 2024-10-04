@@ -78,7 +78,6 @@ const useBLE = (): BluetoothLowEnergyApi => {
         console.log(error);
       }
       if (device) {
-        console.log(`Device found: ${device.name || 'Unnamed device'}`);
         setAllDevices((prevState: Device[]) => {
           if (!isDuplicateDevice(prevState, device)) {
             return [...prevState, device];

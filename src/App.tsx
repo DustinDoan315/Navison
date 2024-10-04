@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   SafeAreaView,
   ScrollView,
 } from 'react-native';
-import {handleLocationPermission} from './utils/Permission';
+import useBLE from './components/useBLE';
 
 interface BluetoothDevice {
   id: string;
@@ -25,6 +25,15 @@ interface PortConfiguration {
 }
 
 const App: React.FC = () => {
+  const {
+    requestPermissions,
+    scanForPeripherals,
+    allDevices,
+    // connectToDevice,
+    // connectedDevice,
+    // disconnectFromDevice,
+  } = useBLE();
+
   const [portConfigurations, setPortConfigurations] = useState<
     PortConfiguration[]
   >([
@@ -38,15 +47,15 @@ const App: React.FC = () => {
     {id: 8, timer: 0, index: 8},
   ]);
 
+  console.log('====================================');
+  console.log('---allDevices: ', allDevices);
+  console.log('====================================');
+
   const [selectedPort, setSelectedPort] = useState<PortConfiguration | null>(
     null,
   );
   const [timerValue, setTimerValue] = useState<string>('');
   const [isModalVisible, setModalVisible] = useState<boolean>(false);
-
-  useEffect(() => {
-    handleLocationPermission();
-  }, []);
 
   const handleConnect = async (device: BluetoothDevice) => {
     console.log('---device: ', device);
@@ -78,10 +87,18 @@ const App: React.FC = () => {
     setModalVisible(false);
   };
 
+  const scanForDevices = () => {
+    requestPermissions(isGranted => {
+      if (isGranted) {
+        scanForPeripherals();
+      }
+    });
+  };
+
   return (
     <SafeAreaView style={{flex: 1}}>
       <ScrollView style={styles.container}>
-        <Button title="Scan for Devices" />
+        <Button title="Scan for Devices" onPress={scanForDevices} />
         <FlatList
           scrollEnabled={false}
           data={[]}

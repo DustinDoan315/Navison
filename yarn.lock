@@ -3637,6 +3637,7 @@ __metadata:
     react-native-android-location-enabler: ^2.0.1
     react-native-ble-manager: ^11.5.5
     react-native-ble-plx: ^3.2.1
+    react-native-device-info: ^13.0.0
     react-native-permissions: ^4.1.5
     react-test-renderer: 18.3.1
     typescript: 5.0.4
@@ -9790,6 +9791,15 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 4e885980a2be9f54dc4000ab8c9e5724167618aeda07724bb6f76a3f945f2bbe3e151735a123bca79c7ae5f8757c86fbc37225836b6841e7da32d15af42dd0ac
+  languageName: node
+  linkType: hard
+
+"react-native-device-info@npm:^13.0.0":
+  version: 13.0.0
+  resolution: "react-native-device-info@npm:13.0.0"
+  peerDependencies:
+    react-native: "*"
+  checksum: c86822bcdad1bb9d3b93bd750e199964c562d83e076df2f0984e24cadd19db7f8258e125ddede102be2314ed8349d2da2b671c998f70571027b84449773c583a
   languageName: node
   linkType: hard
 

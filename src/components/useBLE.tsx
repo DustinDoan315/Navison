@@ -9,8 +9,8 @@ import {
   Device,
 } from 'react-native-ble-plx';
 
-const HEART_RATE_UUID = '0000180d-0000-1000-8000-00805f9b34fb';
-const HEART_RATE_CHARACTERISTIC = '00002a37-0000-1000-8000-00805f9b34fb';
+const APP_NAVISON_UUID = '0000180d-0000-1000-8000-00805f9b34fb';
+const APP_NAVISON_CHARACTERISTIC = '00002a37-0000-1000-8000-00805f9b34fb';
 
 const bleManager = new BleManager();
 
@@ -18,12 +18,13 @@ type VoidCallback = (result: boolean) => void;
 
 interface BluetoothLowEnergyApi {
   requestPermissions(cb: VoidCallback): Promise<void>;
-  scanForPeripherals(): void;
+  scanForPeripherals(setIsLoading: any): void;
   connectToDevice: (deviceId: Device) => Promise<void>;
   disconnectFromDevice: () => void;
   connectedDevice: Device | null;
   allDevices: Device[];
   heartRate: number;
+  sendCommandToDevice: (deviceId: string, command: string) => void;
 }
 
 const useBLE = (): BluetoothLowEnergyApi => {
@@ -72,17 +73,22 @@ const useBLE = (): BluetoothLowEnergyApi => {
   const isDuplicateDevice = (devices: Device[], nextDevice: Device) =>
     devices.findIndex(device => nextDevice.id === device.id) > -1;
 
-  const scanForPeripherals = () =>
+  const scanForPeripherals = (setIsLoading: any) =>
     bleManager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         console.log(error);
+        bleManager.stopDeviceScan();
+        setIsLoading(false);
+        return;
       }
       if (device) {
         setAllDevices((prevState: Device[]) => {
-          if (!isDuplicateDevice(prevState, device)) {
-            return [...prevState, device];
-          }
-          return prevState;
+          const updatedDevices = !isDuplicateDevice(prevState, device)
+            ? [...prevState, device]
+            : prevState;
+          bleManager.stopDeviceScan();
+          setIsLoading(false);
+          return updatedDevices;
         });
       }
     });
@@ -110,8 +116,8 @@ const useBLE = (): BluetoothLowEnergyApi => {
   const startStreamingData = async (device: Device) => {
     if (device) {
       device.monitorCharacteristicForService(
-        HEART_RATE_UUID,
-        HEART_RATE_CHARACTERISTIC,
+        APP_NAVISON_UUID,
+        APP_NAVISON_CHARACTERISTIC,
         (error, characteristic) => onHeartRateUpdate(error, characteristic),
       );
     } else {
@@ -126,6 +132,27 @@ const useBLE = (): BluetoothLowEnergyApi => {
     console.log(characteristic);
   };
 
+  const sendCommandToDevice = async (deviceId: string, command: string) => {
+    if (!connectedDevice || connectedDevice.id !== deviceId) {
+      console.warn('Device not connected');
+      return;
+    }
+    try {
+      const commandBytes = Buffer.from(command, 'utf-8');
+
+      await bleManager.writeCharacteristicWithResponseForDevice(
+        deviceId,
+        APP_NAVISON_UUID,
+        APP_NAVISON_CHARACTERISTIC,
+        commandBytes.toString('base64'),
+      );
+
+      console.log(`Command sent to ${deviceId}: ${command}`);
+    } catch (error) {
+      console.error('Error sending command', error);
+    }
+  };
+
   return {
     scanForPeripherals,
     requestPermissions,
@@ -134,6 +161,7 @@ const useBLE = (): BluetoothLowEnergyApi => {
     connectedDevice,
     disconnectFromDevice,
     heartRate,
+    sendCommandToDevice,
   };
 };
 

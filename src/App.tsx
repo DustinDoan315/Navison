@@ -1,3 +1,4 @@
+/* eslint-disable react-native/no-inline-styles */
 import React, {useState} from 'react';
 import {
   View,
@@ -10,6 +11,7 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import useBLE from './components/useBLE';
 
@@ -30,8 +32,7 @@ const App: React.FC = () => {
     scanForPeripherals,
     allDevices,
     connectToDevice,
-    // connectedDevice,
-    // disconnectFromDevice,
+    sendCommandToDevice,
   } = useBLE();
 
   const [portConfigurations, setPortConfigurations] = useState<
@@ -46,6 +47,8 @@ const App: React.FC = () => {
     {id: 7, timer: 0, index: 7},
     {id: 8, timer: 0, index: 8},
   ]);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+
   const uniqueIds = new Set();
   const mappingData: BluetoothDevice[] = allDevices
     .filter(
@@ -57,26 +60,32 @@ const App: React.FC = () => {
       name: device.name,
     }));
 
-  console.log('====================================');
   console.log('---allDevices: ', mappingData.slice(0, 10));
-  console.log('====================================');
 
   const [selectedPort, setSelectedPort] = useState<PortConfiguration | null>(
     null,
   );
   const [timerValue, setTimerValue] = useState<string>('');
   const [isModalVisible, setModalVisible] = useState<boolean>(false);
-
-  // const handleConnect = async (device: BluetoothDevice) => {
-  //   console.log('---device: ', device);
-  // };
+  const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(
+    null,
+  );
 
   const handleSendConfig = async () => {
-    const configData = portConfigurations.map(port => ({
-      port: port.index,
-      timer: port.timer,
-    }));
-    console.log('---configData: ', configData);
+    const configData = portConfigurations.map(
+      port => `${port.index},${port.timer}`,
+    );
+    if (selectedDevice) {
+      sendCommandToDevice(selectedDevice.id, configData.toString());
+      console.log('---configData: ', JSON.stringify(configData.toString()));
+    }
+  };
+
+  const toggleLed = () => {
+    if (selectedDevice) {
+      sendCommandToDevice(selectedDevice.id, 'TOGGLE_LED');
+      console.log(`Toggling LED on device ${selectedDevice.id}`);
+    }
   };
 
   const openModal = (port: PortConfiguration) => {
@@ -97,10 +106,24 @@ const App: React.FC = () => {
     setModalVisible(false);
   };
 
+  const movePort = (index: number, direction: 'up' | 'down') => {
+    const newConfigurations = [...portConfigurations];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex >= 0 && targetIndex < newConfigurations.length) {
+      [newConfigurations[index], newConfigurations[targetIndex]] = [
+        newConfigurations[targetIndex],
+        newConfigurations[index],
+      ];
+      setPortConfigurations(newConfigurations);
+    }
+  };
+
   const scanForDevices = () => {
     requestPermissions(isGranted => {
       if (isGranted) {
-        scanForPeripherals();
+        setIsLoading(true);
+        setTimeout(() => scanForPeripherals(setIsLoading), 700);
       }
     });
   };
@@ -108,7 +131,19 @@ const App: React.FC = () => {
   return (
     <SafeAreaView style={{flex: 1}}>
       <ScrollView style={styles.container}>
-        <Button title="Scan for Devices" onPress={scanForDevices} />
+        <TouchableOpacity
+          style={[
+            styles.button,
+            {backgroundColor: isLoading ? '#6c757d' : '#007BFF'},
+          ]}
+          onPress={scanForDevices}
+          disabled={isLoading}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Text style={styles.buttonText}>Scan for Devices</Text>
+          )}
+        </TouchableOpacity>
         <FlatList
           scrollEnabled={false}
           data={mappingData.slice(0, 10)}
@@ -116,7 +151,10 @@ const App: React.FC = () => {
           renderItem={({item}: any) => (
             <TouchableOpacity
               style={styles.deviceItem}
-              onPress={() => connectToDevice(item)}>
+              onPress={() => {
+                connectToDevice(item);
+                setSelectedDevice(item);
+              }}>
               <Text style={styles.deviceText}>
                 {item.name || 'Unnamed Device'}
               </Text>
@@ -126,17 +164,44 @@ const App: React.FC = () => {
         />
 
         <Text style={styles.headerText}>Port Configurations</Text>
-        {portConfigurations.map(port => (
-          <TouchableOpacity
-            key={port.id}
-            style={styles.portItem}
-            onPress={() => openModal(port)}>
-            <Text style={styles.portText}>Port {port.index}</Text>
-            <Text style={styles.portTimer}>Timer: {port.timer} s</Text>
-          </TouchableOpacity>
+        {portConfigurations.map((port, index) => (
+          <View key={port.id} style={styles.portItem}>
+            <TouchableOpacity onPress={() => openModal(port)}>
+              <Text style={styles.portText}>Port {port.index}</Text>
+              <Text style={styles.portTimer}>Timer: {port.timer} s</Text>
+            </TouchableOpacity>
+
+            {/* Up and Down Buttons for Reordering */}
+            <View style={styles.orderButtons}>
+              <TouchableOpacity
+                style={styles.button}
+                onPress={() => movePort(index, 'up')}
+                disabled={index === 0}>
+                <Text style={styles.buttonText}>Up</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.button, {backgroundColor: 'orange'}]}
+                onPress={() => movePort(index, 'down')}
+                disabled={index === portConfigurations.length - 1}>
+                <Text style={styles.buttonText}>Down</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ))}
 
-        <Button title="Send Configuration" onPress={handleSendConfig} />
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.button, {backgroundColor: '#007BFF'}]}
+            onPress={() => handleSendConfig()}>
+            <Text style={styles.buttonText}>Send Configuration</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.button, {backgroundColor: 'green'}]}
+            onPress={toggleLed}>
+            <Text style={styles.buttonText}>Toggle LED</Text>
+          </TouchableOpacity>
+        </View>
 
         <Modal
           visible={isModalVisible}
@@ -169,6 +234,12 @@ const App: React.FC = () => {
             </View>
           </View>
         </Modal>
+
+        <View
+          style={{
+            height: 200,
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -204,6 +275,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   portText: {
     fontSize: 16,
@@ -213,6 +285,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: '#666666',
+  },
+  orderButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10, // Add spacing above the buttons
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  button: {
+    backgroundColor: '#007BFF', // Button background color
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 5, // Spacing between buttons
+  },
+  buttonText: {
+    color: '#FFFFFF', // Button text color
+    textAlign: 'center',
   },
   modalContainer: {
     flex: 1,

@@ -60,13 +60,12 @@ const App: React.FC = () => {
       name: device.name,
     }));
 
-  console.log('---allDevices: ', mappingData.slice(0, 10));
-
   const [selectedPort, setSelectedPort] = useState<PortConfiguration | null>(
     null,
   );
   const [timerValue, setTimerValue] = useState<string>('');
   const [isModalVisible, setModalVisible] = useState<boolean>(false);
+  const [isToggle, setIsToggle] = useState<boolean>(false);
   const [selectedDevice, setSelectedDevice] = useState<BluetoothDevice | null>(
     null,
   );
@@ -83,8 +82,9 @@ const App: React.FC = () => {
 
   const toggleLed = () => {
     if (selectedDevice) {
+      setIsToggle(!isToggle);
       sendCommandToDevice(selectedDevice.id, 'TOGGLE_LED');
-      console.log(`Toggling LED on device ${selectedDevice.id}`);
+      console.log(`Toggle: ${isToggle}`);
     }
   };
 
@@ -144,24 +144,26 @@ const App: React.FC = () => {
             <Text style={styles.buttonText}>Scan for Devices</Text>
           )}
         </TouchableOpacity>
-        <FlatList
-          scrollEnabled={false}
-          data={mappingData.slice(0, 10)}
-          keyExtractor={(item: any) => item.id}
-          renderItem={({item}: any) => (
-            <TouchableOpacity
-              style={styles.deviceItem}
-              onPress={() => {
-                connectToDevice(item);
-                setSelectedDevice(item);
-              }}>
-              <Text style={styles.deviceText}>
-                {item.name || 'Unnamed Device'}
-              </Text>
-            </TouchableOpacity>
-          )}
-          ListHeaderComponent={<Text style={styles.headerText}>Devices</Text>}
-        />
+        {mappingData.length > 0 && (
+          <FlatList
+            scrollEnabled={false}
+            data={mappingData.slice(0, 10)}
+            keyExtractor={(item: any) => item.id}
+            renderItem={({item}: any) => (
+              <TouchableOpacity
+                style={styles.deviceItem}
+                onPress={() => {
+                  connectToDevice(item);
+                  setSelectedDevice(item);
+                }}>
+                <Text style={styles.deviceText}>
+                  {item.name || 'Unnamed Device'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            ListHeaderComponent={<Text style={styles.headerText}>Devices</Text>}
+          />
+        )}
 
         <Text style={styles.headerText}>Port Configurations</Text>
         {portConfigurations.map((port, index) => (
@@ -237,7 +239,7 @@ const App: React.FC = () => {
 
         <View
           style={{
-            height: 200,
+            height: 100,
           }}
         />
       </ScrollView>

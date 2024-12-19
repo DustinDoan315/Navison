@@ -1,7 +1,8 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import {PermissionsAndroid, Platform} from 'react-native';
 import {PERMISSIONS, requestMultiple} from 'react-native-permissions';
 import DeviceInfo from 'react-native-device-info';
-import {useState} from 'react';
+import {useState, useCallback} from 'react';
 import {
   BleError,
   BleManager,
@@ -32,7 +33,7 @@ const useBLE = (): BluetoothLowEnergyApi => {
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
   const [heartRate, setHeartRate] = useState<number>(0);
 
-  const requestPermissions = async (cb: VoidCallback) => {
+  const requestPermissions = useCallback(async (cb: VoidCallback) => {
     if (Platform.OS === 'android') {
       const apiLevel = await DeviceInfo.getApiLevel();
 
@@ -68,32 +69,35 @@ const useBLE = (): BluetoothLowEnergyApi => {
     } else {
       cb(true);
     }
-  };
+  }, []);
 
   const isDuplicateDevice = (devices: Device[], nextDevice: Device) =>
-    devices.findIndex(device => nextDevice.id === device.id) > -1;
+    devices.some(device => nextDevice.id === device.id);
 
-  const scanForPeripherals = (setIsLoading: any) =>
-    bleManager.startDeviceScan(null, null, (error, device) => {
-      if (error) {
-        console.log(error);
-        bleManager.stopDeviceScan();
-        setIsLoading(false);
-        return;
-      }
-      if (device) {
-        setAllDevices((prevState: Device[]) => {
-          const updatedDevices = !isDuplicateDevice(prevState, device)
-            ? [...prevState, device]
-            : prevState;
+  const scanForPeripherals = useCallback(
+    (setIsLoading: any) =>
+      bleManager.startDeviceScan(null, null, (error, device) => {
+        if (error) {
+          console.log(error);
           bleManager.stopDeviceScan();
           setIsLoading(false);
-          return updatedDevices;
-        });
-      }
-    });
+          return;
+        }
+        if (device) {
+          setAllDevices(prevState => {
+            const updatedDevices = !isDuplicateDevice(prevState, device)
+              ? [...prevState, device]
+              : prevState;
+            bleManager.stopDeviceScan();
+            setIsLoading(false);
+            return updatedDevices;
+          });
+        }
+      }),
+    [],
+  );
 
-  const connectToDevice = async (device: Device) => {
+  const connectToDevice = useCallback(async (device: Device) => {
     try {
       const deviceConnection = await bleManager.connectToDevice(device.id);
       setConnectedDevice(deviceConnection);
@@ -103,17 +107,17 @@ const useBLE = (): BluetoothLowEnergyApi => {
     } catch (e) {
       console.log('FAILED TO CONNECT', e);
     }
-  };
+  }, []);
 
-  const disconnectFromDevice = () => {
+  const disconnectFromDevice = useCallback(() => {
     if (connectedDevice) {
       bleManager.cancelDeviceConnection(connectedDevice.id);
       setConnectedDevice(null);
       setHeartRate(0);
     }
-  };
+  }, [connectedDevice]);
 
-  const startStreamingData = async (device: Device) => {
+  const startStreamingData = useCallback(async (device: Device) => {
     if (device) {
       device.monitorCharacteristicForService(
         APP_NAVISON_UUID,
@@ -123,35 +127,38 @@ const useBLE = (): BluetoothLowEnergyApi => {
     } else {
       console.log('No Device Connected');
     }
-  };
+  }, []);
 
-  const onHeartRateUpdate = (
-    error: BleError | null,
-    characteristic: Characteristic | null,
-  ) => {
-    console.log(characteristic);
-  };
+  const onHeartRateUpdate = useCallback(
+    (error: BleError | null, characteristic: Characteristic | null) => {
+      console.log(characteristic);
+    },
+    [],
+  );
 
-  const sendCommandToDevice = async (deviceId: string, command: string) => {
-    if (!connectedDevice || connectedDevice.id !== deviceId) {
-      console.warn('Device not connected');
-      return;
-    }
-    try {
-      const commandBytes = Buffer.from(command, 'utf-8');
+  const sendCommandToDevice = useCallback(
+    async (deviceId: string, command: string) => {
+      if (!connectedDevice || connectedDevice.id !== deviceId) {
+        console.warn('Device not connected');
+        return;
+      }
+      try {
+        const commandBytes = Buffer.from(command, 'utf-8');
 
-      await bleManager.writeCharacteristicWithResponseForDevice(
-        deviceId,
-        APP_NAVISON_UUID,
-        APP_NAVISON_CHARACTERISTIC,
-        commandBytes.toString('base64'),
-      );
+        await bleManager.writeCharacteristicWithResponseForDevice(
+          deviceId,
+          APP_NAVISON_UUID,
+          APP_NAVISON_CHARACTERISTIC,
+          commandBytes.toString('base64'),
+        );
 
-      console.log(`Command sent to ${deviceId}: ${command}`);
-    } catch (error) {
-      console.error('Error sending command', error);
-    }
-  };
+        console.log(`Command sent to ${deviceId}: ${command}`);
+      } catch (error) {
+        console.error('Error sending command', error);
+      }
+    },
+    [connectedDevice],
+  );
 
   return {
     scanForPeripherals,
